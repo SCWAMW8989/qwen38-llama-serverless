@@ -1,59 +1,71 @@
-# Dockerfile.serverless  (v1.1)
-# Layers a baked-in model onto YOUR existing llama.cpp CUDA image (the one
-# your current entrypoint.sh already runs in), so a Serverless worker never
-# downloads weights at start-up.
-#
-# Build (needs about 45 GB free disk and a fast upload):
-#   docker build --platform linux/amd64 \
-#     --build-arg BASE_IMAGE=YOURUSER/qwen38-llama:CURRENT_TAG \
-#     --build-arg QUANT=Q5_K_M-multilingual-mtp \
-#     -t YOURUSER/qwen38-llama-serverless:q5km-mtp-v1 -f Dockerfile.serverless .
-#   docker push YOURUSER/qwen38-llama-serverless:q5km-mtp-v1
-#
-# One image per quant. Suggested tags:
-#   24 GB GPUs -> QUANT=Q5_K_M-multilingual-mtp
-#   48 GB GPUs -> QUANT=Q8_0-multilingual-mtp
+# .github/workflows/build-serverless.yml  (v1_2, untested, best-effort)
+# Builds Dockerfile.serverless (model baked in) and pushes it to Docker Hub.
+# Start it from the GitHub app or the Actions tab: Run workflow, fill the 4 inputs.
+# Needs repo secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN.
+# Expects Dockerfile.serverless, entrypoint.sh and health_shim.py in the repo root
+# (change the build context line if they live in a subfolder).
+name: Build serverless image
 
-ARG BASE_IMAGE
-FROM ${BASE_IMAGE}
+on:
+  workflow_dispatch:
+    inputs:
+      base_image:
+        description: "Your existing llama.cpp CUDA image, e.g. youruser/qwen38-llama:v1"
+        required: true
+      quant:
+        description: "Quant to bake in"
+        required: true
+        default: "Q5_K_M-multilingual-mtp"
+      tag:
+        description: "Tag for the new image"
+        required: true
+        default: "q5km-mtp-v1"
+      with_vision:
+        description: "Bake in the vision projector? 1 = yes, 0 = text only"
+        required: true
+        default: "1"
 
-ARG QUANT=Q5_K_M-multilingual-mtp
-ARG REPO=0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF
-ARG MMPROJ=mmproj-Qwen3.8-27B-Q8_0.gguf
-ARG WITH_VISION=1
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      # Pruning images is a no-op on a fresh runner but harmless. Deleting
+      # hostedtoolcache is safe because no setup-* actions run afterwards.
+      - name: Free disk space (the image is about 20 GB)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force
+          df -h /
+          FREE_GB=$(df --output=avail -BG / | tail -1 | tr -dc '0-9')
+          FREE_GB=${FREE_GB:-0}
+          echo "Free: ${FREE_GB} GB"
+          if [ "$FREE_GB" -lt 45 ]; then
+            echo "::warning::Only ${FREE_GB} GB free (guide says 45 GB)." \
+                 "The build will probably run out of disk." \
+                 "Use the laptop build (4A) or Option B (4C)."
+          fi
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends python3 curl ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+      - uses: actions/checkout@v4
 
-# Bake the model and the vision projector into the image.
-RUN mkdir -p /opt/models \
- && curl -fL --retry 5 --retry-delay 10 --connect-timeout 30 \
-      -o "/opt/models/RVN-${QUANT}.gguf" \
-      "https://huggingface.co/${REPO}/resolve/main/RVN-${QUANT}.gguf" \
- && if [ "${WITH_VISION}" = "1" ]; then \
-      curl -fL --retry 5 --retry-delay 10 --connect-timeout 30 \
-        -o "/opt/models/${MMPROJ}" \
-        "https://huggingface.co/${REPO}/resolve/main/${MMPROJ}"; \
-    fi \
- && ls -lh /opt/models
+      # Docker Hub only. For GHCR or a private base image, add the matching login step.
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY health_shim.py /opt/health_shim.py
-# Windows safety net: strip CRLF line endings so the shebang and shell syntax work.
-RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh /opt/health_shim.py \
- && chmod +x /usr/local/bin/entrypoint.sh /opt/health_shim.py
+      # Plain docker build/push on purpose: buildx's container driver would
+      # keep a second copy of the layers and use even more disk.
+      - name: Build
+        run: |
+          docker build --platform linux/amd64 \
+            --build-arg BASE_IMAGE="${{ inputs.base_image }}" \
+            --build-arg QUANT="${{ inputs.quant }}" \
+            --build-arg WITH_VISION="${{ inputs.with_vision }}" \
+            -t "${{ secrets.DOCKERHUB_USERNAME }}/qwen38-llama-serverless:${{ inputs.tag }}" \
+            -f Dockerfile.serverless .
 
-# QUANT_OVERRIDE pins the baked file so the entrypoint never tries to
-# auto-select (and download) a different quant on a different GPU.
-ENV SERVERLESS=1 \
-    LLAMA_CACHE=/opt/models \
-    QUANT_OVERRIDE=${QUANT} \
-    PORT=8080 \
-    PORT_HEALTH=8081 \
-    ENABLE_VISION=${WITH_VISION} \
-    THINKING=false \
-    CONTEXT_SIZE=32768
-
-EXPOSE 8080 8081
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+      - name: Push
+        run: docker push "${{ secrets.DOCKERHUB_USERNAME }}/qwen38-llama-serverless:${{ inputs.tag }}"

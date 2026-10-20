@@ -1,3 +1,6 @@
+### A3. health_shim.py (v1_1)
+
+```
 #!/usr/bin/env python3
 """Health-check shim (v1.1) for a Runpod load balancing endpoint running llama-server.
 
@@ -64,3 +67,4 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     print(f"health_shim: :{HEALTH_PORT} -> {UPSTREAM}", flush=True)
     HTTPServer(("0.0.0.0", HEALTH_PORT), Handler).serve_forever()
+```

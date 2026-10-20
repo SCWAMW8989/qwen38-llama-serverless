@@ -1,3 +1,4 @@
+```
 # Dockerfile.serverless  (v1.1)
 # Layers a baked-in model onto YOUR existing llama.cpp CUDA image (the one
 # your current entrypoint.sh already runs in), so a Serverless worker never
@@ -57,3 +58,4 @@ ENV SERVERLESS=1 \
 
 EXPOSE 8080 8081
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+```

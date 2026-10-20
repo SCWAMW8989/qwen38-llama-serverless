@@ -1,7 +1,10 @@
+### A2. entrypoint.sh (v1_3)
+
+```
 #!/usr/bin/env bash
 # entrypoint.sh  --  Qwen3.8-27B RVN Heretic on RunPod (llama.cpp server-cuda)
-# v1.2: v1.1 tuning plus Serverless mode. Changes are marked "# [TUNED]" (v1.1)
-# and "# [SERVERLESS]" (v1.2).
+# v1_3: v1_1 tuning, v1_2 Serverless mode, plus an MTP safety fix. Changes are
+# marked "# [TUNED]" (v1_1), "# [SERVERLESS]" (v1_2) and "# [FIX v1_3]".
 #
 # Tunable env vars (all optional except API_KEY):
 #   API_KEY          required on a Pod. Not used when SERVERLESS=1.
@@ -305,10 +308,17 @@ esac
 
 # [TUNED] MTP speculative-decoding flags, only when the loaded file is an
 # -mtp twin. --parallel 1 (set below) is required for MTP.
+# [FIX v1_3] Only add the flags if this llama-server build knows --spec-type
+# (MTP_WANTED=1). Before, a pinned -mtp file (QUANT_OVERRIDE) on an older base
+# image crashed at launch on an unknown argument. Now it runs without MTP.
 SPEC_ARGS=()
 case "$HF_FILE" in
   *-mtp.gguf)
-    SPEC_ARGS=(--spec-type draft-mtp --spec-draft-n-max 2)
+    if [ "$MTP_WANTED" -eq 1 ]; then
+      SPEC_ARGS=(--spec-type draft-mtp --spec-draft-n-max 2)
+    else
+      echo "WARNING: ${HF_FILE} is an MTP file but MTP is off or unsupported here. Running without speculative decoding (slower)." >&2
+    fi
     ;;
 esac
 
@@ -363,3 +373,4 @@ exec "$LLAMA_SERVER_BIN" \
   ${MMPROJ_FLAG} \
   "${API_ARGS[@]}" \
   "$@"
+```

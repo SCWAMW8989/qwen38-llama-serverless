@@ -56,4 +56,3 @@ ENV SERVERLESS=1 \
     CONTEXT_SIZE=32768
 
 EXPOSE 8080 8081
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

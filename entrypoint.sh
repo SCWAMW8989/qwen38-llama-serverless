@@ -1,6 +1,3 @@
-### A2. entrypoint.sh (v1_3)
-
-```
 #!/usr/bin/env bash
 # entrypoint.sh  --  Qwen3.8-27B RVN Heretic on RunPod (llama.cpp server-cuda)
 # v1_3: v1_1 tuning, v1_2 Serverless mode, plus an MTP safety fix. Changes are
@@ -373,4 +370,3 @@ exec "$LLAMA_SERVER_BIN" \
   ${MMPROJ_FLAG} \
   "${API_ARGS[@]}" \
   "$@"
-```

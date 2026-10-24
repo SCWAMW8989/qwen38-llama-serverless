@@ -1,5 +1,5 @@
 # .github/workflows/build-serverless.yml  (v1_2, untested, best-effort)
-# Builds Dockerfile-serverless (model baked in) and pushes it to Docker Hub.
+# Builds Dockerfile.serverless (model baked in) and pushes it to Docker Hub.
 name: Build serverless image
 
 on:
@@ -64,7 +64,7 @@ jobs:
             --build-arg QUANT="${{ inputs.quant }}" \
             --build-arg WITH_VISION="${{ inputs.with_vision }}" \
             -t "${{ secrets.DOCKERHUB_USERNAME }}/qwen38-llama-serverless:${{ inputs.tag }}" \
-            -f Dockerfile-serverless .
+            -f Dockerfile.serverless .
 
       - name: Push
         run: docker push "${{ secrets.DOCKERHUB_USERNAME }}/qwen38-llama-serverless:${{ inputs.tag }}"

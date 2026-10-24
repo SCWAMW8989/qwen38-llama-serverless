@@ -42,6 +42,14 @@ jobs:
           fi
 
       - uses: actions/checkout@v4
+      - name: Check credentials (lengths only)
+        env:
+          U: ${{ secrets.DOCKERHUB_USERNAME }}
+          T: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          echo "username length: ${#U}"
+          echo "token length: ${#T}"
+          echo "token starts with: ${T:0:9}"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3

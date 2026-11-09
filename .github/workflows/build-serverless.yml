@@ -6,8 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       base_image:
-        description: "Your existing llama.cpp CUDA image, e.g. youruser/qwen38-llama:v1"
+        description: "Your existing llama.cpp CUDA image, e.g. scwamw89/qwen38-llama:v1"
         required: true
+        default: "scwamw89/qwen38-llama-serverless:recent"
       quant:
         description: "Quant to bake in"
         required: true

@@ -1,4 +1,4 @@
-!/usr/bin/env python3
+#!/usr/bin/env python3
 """Health-check shim (v1.1) for a Runpod load balancing endpoint running llama-server.
 
 Runpod polls GET /ping on PORT_HEALTH (default 8081):
